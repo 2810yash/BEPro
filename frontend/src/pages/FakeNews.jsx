@@ -39,7 +39,7 @@ const FakeNewsPage = () => {
 
   const handleAnalyze = () => {
     if (url.trim()) {
-      navigate('/news_sentiment');
+      navigate('/news_sentiment', { state: { url: url.trim() } });
     }
   };
 

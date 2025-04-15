@@ -1,10 +1,103 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "../styles/NewsSentiment.css";
 import { FaCheckCircle, FaChartBar, FaArrowLeft } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import axios from "axios";
 
 const NewsSentiment = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    console.log("Location state:", location.state); // Debug: entire location state
+    const fetchAnalysis = async () => {
+      try {
+        const url = location.state?.url;
+        console.log("Location object:", location); // Debug: full location object
+        console.log("URL from state:", url); // Debug: extracted URL
+        
+        if (!url) {
+          console.log("No URL found in state"); // Debug: URL missing case
+          setError("No URL provided for analysis");
+          setLoading(false);
+          return;
+        }
+
+        console.log("Making API call to analyze URL:", url); // Debug log
+        const response = await axios.post('http://localhost:8000/api/v1/news/analyze-url', {
+          url: url
+        });
+        console.log("API Response:", response.data); // Debug log
+
+        setAnalysisResult(response.data);
+        setLoading(false);
+      } catch (err) {
+        console.error("Analysis Error:", err.response?.data || err.message); // Enhanced error logging
+        setError(err.response?.data?.detail || err.message || "Failed to analyze content");
+        setLoading(false);
+      }
+    };
+
+    fetchAnalysis();
+  }, [location]);
+
+  if (loading) {
+    return (
+      <div className="news-container">
+        <header className="news-header">
+          <button className="back-btn" onClick={() => navigate('/dashboard')}>
+            <FaArrowLeft /> Back to Dashboard
+          </button>
+          <h1>SentiNews</h1>
+        </header>
+        <div className="loading-container">
+          <div className="loading">Analyzing content...</div>
+          <div className="loading-details">Please wait while we analyze your article</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="news-container">
+        <header className="news-header">
+          <button className="back-btn" onClick={() => navigate('/dashboard')}>
+            <FaArrowLeft /> Back to Dashboard
+          </button>
+          <h1>SentiNews</h1>
+        </header>
+        <div className="error-container">
+          <div className="error">Error: {error}</div>
+          <button onClick={() => navigate('/dashboard')} className="retry-btn">
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analysisResult) {
+    return (
+      <div className="news-container">
+        <header className="news-header">
+          <button className="back-btn" onClick={() => navigate('/dashboard')}>
+            <FaArrowLeft /> Back to Dashboard
+          </button>
+          <h1>SentiNews</h1>
+        </header>
+        <div className="error-container">
+          <div className="error">No analysis results available</div>
+          <button onClick={() => navigate('/dashboard')} className="retry-btn">
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="news-container">
@@ -17,29 +110,16 @@ const NewsSentiment = () => {
 
       <main className="news-content">
         <section className="news-article">
-          <h2 className="news-title">
-            Global Economic Recovery Shows Promising Signs Despite Challenges
-          </h2>
+          <h2 className="news-title">{analysisResult.metadata?.title || "Untitled Article"}</h2>
           <div className="article-meta">
-            <span>Published: March 15, 2025</span>
-            <span>Source: Global Economics Times</span>
+            <span>Published: {new Date(analysisResult.metadata?.publishedDate).toLocaleDateString()}</span>
+            <span>Source: {analysisResult.metadata?.source}</span>
           </div>
-          <p className="news-body">
-            The global economy is showing signs of recovery in early 2025, with
-            major economies reporting better-than-expected growth figures.
-            Financial markets have responded positively to these developments,
-            with major indices reaching new highs.
-          </p>
-          <p className="news-body">
-            However, challenges remain as inflation concerns persist in several
-            regions. Central banks are maintaining a cautious approach to
-            monetary policy, balancing growth objectives with price stability.
-          </p>
-          <p className="news-body">
-            Emerging markets are experiencing varied outcomes, with some
-            showing robust recovery while others face continued headwinds from
-            currency pressures and supply chain disruptions.
-          </p>
+          <div className="article-content">
+            {analysisResult.metadata?.text && (
+              <p className="news-body">{analysisResult.metadata.text}</p>
+            )}
+          </div>
         </section>
 
         <section className="sentiment-analysis">
@@ -48,56 +128,44 @@ const NewsSentiment = () => {
             <h3>Sentiment Analysis Results</h3>
           </div>
 
-          <div className="sentence-analysis">
-            <h4>Sentence-wise Analysis</h4>
-            <div className="sentence-item positive">
-              <span className="sentence-text">"The global economy is showing signs of recovery in early 2025..."</span>
-              <div className="sentiment-tag">
-                <span className="tag">Positive</span>
-                <span className="confidence">92%</span>
-              </div>
-            </div>
-            <div className="sentence-item negative">
-              <span className="sentence-text">"However, challenges remain as inflation concerns persist..."</span>
-              <div className="sentiment-tag">
-                <span className="tag">Negative</span>
-                <span className="confidence">85%</span>
-              </div>
-            </div>
-            <div className="sentence-item neutral">
-              <span className="sentence-text">"Central banks are maintaining a cautious approach..."</span>
-              <div className="sentiment-tag">
-                <span className="tag">Neutral</span>
-                <span className="confidence">78%</span>
-              </div>
-            </div>
-          </div>
-
           <div className="metrics-grid">
             <div className="metrics-distribution">
               <h4>Sentiment Distribution</h4>
               <div className="distribution-bars">
-                <div className="bar-item">
-                  <div className="bar-label">Positive</div>
-                  <div className="bar-container">
-                    <div className="bar positive" style={{ width: '45%' }}></div>
-                    <span>45%</span>
-                  </div>
-                </div>
-                <div className="bar-item">
-                  <div className="bar-label">Negative</div>
-                  <div className="bar-container">
-                    <div className="bar negative" style={{ width: '30%' }}></div>
-                    <span>30%</span>
-                  </div>
-                </div>
-                <div className="bar-item">
-                  <div className="bar-label">Neutral</div>
-                  <div className="bar-container">
-                    <div className="bar neutral" style={{ width: '25%' }}></div>
-                    <span>25%</span>
-                  </div>
-                </div>
+                {analysisResult.sentiment?.scores && (
+                  <>
+                    <div className="bar-item">
+                      <div className="bar-label">Positive</div>
+                      <div className="bar-container">
+                        <div 
+                          className="bar positive" 
+                          style={{ width: `${analysisResult.sentiment.scores.positive * 100}%` }}
+                        ></div>
+                        <span>{(analysisResult.sentiment.scores.positive * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="bar-item">
+                      <div className="bar-label">Negative</div>
+                      <div className="bar-container">
+                        <div 
+                          className="bar negative" 
+                          style={{ width: `${analysisResult.sentiment.scores.negative * 100}%` }}
+                        ></div>
+                        <span>{(analysisResult.sentiment.scores.negative * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="bar-item">
+                      <div className="bar-label">Neutral</div>
+                      <div className="bar-container">
+                        <div 
+                          className="bar neutral" 
+                          style={{ width: `${analysisResult.sentiment.scores.neutral * 100}%` }}
+                        ></div>
+                        <span>{(analysisResult.sentiment.scores.neutral * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -106,19 +174,22 @@ const NewsSentiment = () => {
               <div className="metrics-grid-container">
                 <div className="metric-box">
                   <h5>Overall Sentiment</h5>
-                  <span className="metric-value positive">Positive</span>
+                  <span className={`metric-value ${analysisResult.sentiment?.label || 'neutral'}`}>
+                    {analysisResult.sentiment?.label ? 
+                      (analysisResult.sentiment.label.charAt(0).toUpperCase() + analysisResult.sentiment.label.slice(1)) :
+                      'Unknown'
+                    }
+                  </span>
+                </div>
+                <div className="metric-box">
+                  <h5>Authenticity</h5>
+                  <span className={`metric-value ${analysisResult.is_fake ? 'negative' : 'positive'}`}>
+                    {analysisResult.is_fake ? 'Potentially Fake' : 'Likely Authentic'}
+                  </span>
                 </div>
                 <div className="metric-box">
                   <h5>Confidence Score</h5>
-                  <span className="metric-value">85%</span>
-                </div>
-                <div className="metric-box">
-                  <h5>Bias Detection</h5>
-                  <span className="metric-value">Low</span>
-                </div>
-                <div className="metric-box">
-                  <h5>Objectivity</h5>
-                  <span className="metric-value">High</span>
+                  <span className="metric-value">{(analysisResult.confidence * 100).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
@@ -130,10 +201,11 @@ const NewsSentiment = () => {
               <div>
                 <h4>Final Analysis</h4>
                 <p>
-                  The article maintains a predominantly positive tone while acknowledging
-                  potential challenges. The balanced presentation of both positive and
-                  negative aspects suggests a credible and nuanced analysis of the
-                  global economic situation.
+                  This article has been analyzed as {analysisResult.is_fake ? 'potentially fake' : 'likely authentic'} with 
+                  {' '}{(analysisResult.confidence * 100).toFixed(1)}% confidence. The overall tone is {analysisResult.sentiment?.label || 'neutral'}, 
+                  with {(analysisResult.sentiment?.scores.positive * 100).toFixed(1)}% positive, 
+                  {(analysisResult.sentiment?.scores.negative * 100).toFixed(1)}% negative, and 
+                  {(analysisResult.sentiment?.scores.neutral * 100).toFixed(1)}% neutral content.
                 </p>
               </div>
             </div>
